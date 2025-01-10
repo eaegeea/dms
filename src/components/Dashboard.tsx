@@ -319,25 +319,33 @@ const Dashboard: React.FC<DashboardProps> = ({ supabase, selectedDog, onDogChang
               {walks.map(walk => (
                 <HStack key={walk.id} justify="space-between" p={2} borderRadius="md" bg="gray.50">
                   <Text fontWeight="medium" color="gray.700">{walk.time}</Text>
-                  <HStack spacing={6}>
-                    <HStack>
-                      <Icon as={FaTint} color={walk.peed ? "blue.500" : "gray.300"} />
+                  <HStack spacing={8}>
+                    <VStack spacing={1} align="center">
+                      <HStack>
+                        <Icon as={FaTint} color={walk.peed ? "blue.500" : "gray.300"} boxSize={5} />
+                        <Text fontSize="sm" color="gray.600">Pee</Text>
+                      </HStack>
                       <Checkbox
                         isChecked={walk.peed}
                         onChange={(e) => updateWalk(walk.id, 'peed', e.target.checked)}
                         colorScheme="blue"
                         size="lg"
+                        borderColor="blue.300"
                       />
-                    </HStack>
-                    <HStack>
-                      <Icon as={FaPoop} color={walk.pooped ? "brown.500" : "gray.300"} />
+                    </VStack>
+                    <VStack spacing={1} align="center">
+                      <HStack>
+                        <Icon as={FaPoop} color={walk.pooped ? "brown.500" : "gray.300"} boxSize={5} />
+                        <Text fontSize="sm" color="gray.600">Poop</Text>
+                      </HStack>
                       <Checkbox
                         isChecked={walk.pooped}
                         onChange={(e) => updateWalk(walk.id, 'pooped', e.target.checked)}
                         colorScheme="brown"
                         size="lg"
+                        borderColor="brown.300"
                       />
-                    </HStack>
+                    </VStack>
                   </HStack>
                 </HStack>
               ))}
