@@ -1,62 +1,76 @@
 # Dog Management System
 
-A web application to track your dog's daily activities including walks and meals.
+A web application to track daily walks and meals for dogs. Built with React, Vite, and Supabase.
 
 ## Features
 
-- Track 4 daily walks with pee/poop status
-- Track 3 daily meals
-- Automatic reset at midnight
-- Data persistence with Supabase
+- Track multiple dogs' daily activities
+- Record walks with pee/poop tracking
+- Manage meal schedules
+- Real-time notifications for overdue activities
+- Mobile responsive design
+- Automatic daily reset at midnight
+- New York timezone support
 
-## Setup
-
-1. Install dependencies:
-```bash
-npm install
-```
-
-2. Create a Supabase project at https://supabase.com
-
-3. Create the following tables in your Supabase database:
-
-```sql
--- Walks table
-create table walks (
-  id bigint primary key,
-  date date not null,
-  time text not null,
-  peed boolean default false,
-  pooped boolean default false
-);
-
--- Meals table
-create table meals (
-  id bigint primary key,
-  date date not null,
-  time text not null,
-  completed boolean default false
-);
-```
-
-4. Copy your Supabase URL and anon key from your project settings
-
-5. Create a `.env` file in the root directory with the following content:
-```
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-6. Start the development server:
-```bash
-npm run dev
-```
-
-## Technologies Used
+## Tech Stack
 
 - React
 - TypeScript
 - Vite
 - Chakra UI
 - Supabase
-- date-fns 
+- date-fns
+
+## Setup
+
+1. Clone the repository:
+```bash
+git clone [your-repository-url]
+cd dog-management-system
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Create environment files:
+Create `.env` file with your Supabase credentials:
+```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+4. Run development server:
+```bash
+npm run dev
+```
+
+5. Build for production:
+```bash
+npm run build
+```
+
+## Database Schema
+
+### Walks Table
+```sql
+CREATE TABLE walks (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    date date NOT NULL,
+    time text NOT NULL,
+    peed boolean DEFAULT false,
+    pooped boolean DEFAULT false,
+    dog_id text NOT NULL
+);
+```
+
+### Meals Table
+```sql
+CREATE TABLE meals (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    date date NOT NULL,
+    time text NOT NULL,
+    completed boolean DEFAULT false,
+    dog_id text NOT NULL
+); 
