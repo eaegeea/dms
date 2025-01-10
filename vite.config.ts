@@ -3,14 +3,11 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  server: {
-    port: 8080,
-    host: '127.0.0.1',
-    open: true,
-  },
   build: {
     outDir: 'dist',
     sourcemap: true,
+    minify: 'esbuild',
+    target: 'es2018',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -19,5 +16,8 @@ export default defineConfig({
         }
       }
     }
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom']
   }
 }); 

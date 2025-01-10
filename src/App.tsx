@@ -1,35 +1,46 @@
-import React from 'react';
-import { 
-  ChakraProvider, 
-  Container, 
-  VStack, 
-  Heading, 
-  Box, 
-  Checkbox, 
-  Text, 
-  Grid, 
-  useToast, 
-  Spinner, 
-  Center, 
-  Icon, 
+import {
+  Box,
+  Checkbox,
+  Heading,
   HStack,
   Image,
   Select,
-  CheckboxIcon,
-  useColorModeValue
+  Text,
+  useToast,
+  VStack,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  ChakraProvider,
 } from '@chakra-ui/react';
 import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { format } from 'date-fns';
-import { toZonedTime, format as formatTz } from 'date-fns-tz';
-import { FaPoop, FaTint, FaDog, FaBone, FaCheck, FaClock } from 'react-icons/fa';
-import { MdRestaurant } from 'react-icons/md';
+import { formatInTimeZone } from 'date-fns-tz';
+import { createClient } from '@supabase/supabase-js';
+import Analytics from './components/Analytics';
 
-// Initialize Supabase client
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
+
+// Add logging for environment variables
+console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL ? 'Set' : 'Not set');
+console.log('Supabase Anon Key:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set');
+
+interface Dog {
+  id: number;
+  name: string;
+  image: string;
+}
+
+const DOGS: Dog[] = [
+  { id: 1, name: 'Rudolph', image: '/rudolph.jpg' },
+  { id: 2, name: 'Ricky', image: '/ricky.jpg' },
+];
 
 interface WalkRecord {
   id: number;
@@ -37,7 +48,7 @@ interface WalkRecord {
   time: string;
   peed: boolean;
   pooped: boolean;
-  dog_id: string;
+  dog_id: number;
 }
 
 interface MealRecord {
@@ -45,176 +56,61 @@ interface MealRecord {
   date: string;
   time: string;
   completed: boolean;
-  dog_id: string;
+  dog_id: number;
 }
 
-interface Dog {
-  id: string;
-  name: string;
-  image: string;
-}
+interface NewWalkRecord extends Omit<WalkRecord, 'id'> {}
+interface NewMealRecord extends Omit<MealRecord, 'id'> {}
 
-const DOGS: Dog[] = [
-  { id: 'rudolph', name: 'Rudolph', image: '/rudolph.jpg' },
-  { id: 'ricky', name: 'Ricky', image: '/ricky.jpg' },
-];
-
-const DEFAULT_WALKS = [
+const DEFAULT_WALKS: Omit<WalkRecord, 'id' | 'date' | 'dog_id'>[] = [
   { time: '9:00 AM', peed: false, pooped: false },
   { time: '2:00 PM', peed: false, pooped: false },
   { time: '6:00 PM', peed: false, pooped: false },
   { time: '10:00 PM', peed: false, pooped: false },
 ];
 
-const DEFAULT_MEALS = [
+const DEFAULT_MEALS: Omit<MealRecord, 'id' | 'date' | 'dog_id'>[] = [
   { time: '9:00 AM', completed: false },
   { time: '2:00 PM', completed: false },
   { time: '6:00 PM', completed: false },
 ];
 
-const parseTime = (time: string) => {
-  const [hourStr, period] = time.split(' ');
-  let [hours, minutes] = hourStr.split(':').map(Number);
-  if (period === 'PM' && hours !== 12) hours += 12;
-  if (period === 'AM' && hours === 12) hours = 0;
-  return hours * 60 + minutes;
-};
-
-const sortByTime = (a: { time: string }, b: { time: string }) => {
-  return parseTime(a.time) - parseTime(b.time);
-};
-
-const isOverdue = (timeStr: string) => {
-  const [time, period] = timeStr.split(' ');
-  const [hours, minutes] = time.split(':').map(Number);
-  const now = new Date();
-  const scheduledTime = new Date();
-  
-  let scheduleHours = hours;
-  if (period === 'PM' && hours !== 12) scheduleHours += 12;
-  if (period === 'AM' && hours === 12) scheduleHours = 0;
-  
-  scheduledTime.setHours(scheduleHours, minutes, 0, 0);
-  
-  // Check if more than 1 hour past due
-  return now.getTime() - scheduledTime.getTime() > 60 * 60 * 1000;
-};
-
-const CustomCheckbox = (props: any) => {
-  const { isChecked, ...rest } = props;
-  return (
-    <Checkbox
-      {...rest}
-      icon={<Icon as={FaCheck} />}
-      sx={{
-        'span.chakra-checkbox__control': {
-          borderRadius: '50%',
-          width: '1.5rem',
-          height: '1.5rem',
-          transition: 'all 0.2s',
-          bg: isChecked ? 'green.500' : 'white',
-          color: 'white',
-          borderColor: isChecked ? 'green.500' : 'gray.300',
-          _hover: {
-            borderColor: isChecked ? 'green.600' : 'green.500',
-          },
-        },
-      }}
-    />
-  );
-};
-
-function App() {
+const App = () => {
   const [walks, setWalks] = useState<WalkRecord[]>([]);
   const [meals, setMeals] = useState<MealRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedDog, setSelectedDog] = useState<Dog>(DOGS[0]);
+  const [selectedDog, setSelectedDog] = useState(DOGS[0]);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const toast = useToast();
   const [overdueNotifications, setOverdueNotifications] = useState<string[]>([]);
+  const toast = useToast();
 
-  useEffect(() => {
-    // Update time every second
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+  const showError = (error: unknown) => {
+    toast({
+      title: 'Error',
+      description: error instanceof Error ? error.message : 'An error occurred',
+      status: 'error',
+      duration: 5000,
+      isClosable: true,
+    });
+  };
 
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    loadTodayData(selectedDog.id);
-  }, [selectedDog]);
-
-  useEffect(() => {
-    const midnight = new Date();
-    midnight.setHours(24, 0, 0, 0);
-    const timeUntilMidnight = midnight.getTime() - new Date().getTime();
-    
-    const timer = setTimeout(() => {
-      resetData();
-    }, timeUntilMidnight);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    const checkOverdueItems = () => {
-      const notifications: string[] = [];
-      
-      // Check walks
-      walks.forEach(walk => {
-        if (isOverdue(walk.time) && !walk.peed) {
-          notifications.push(`${selectedDog.name} is due for a walk (${walk.time})`);
-        }
-      });
-
-      // Check meals only for Ricky
-      if (selectedDog.id === 'ricky') {
-        meals.forEach(meal => {
-          if (isOverdue(meal.time) && !meal.completed) {
-            notifications.push(`${selectedDog.name} is due for a meal (${meal.time})`);
-          }
-        });
-      }
-
-      setOverdueNotifications(notifications);
-    };
-
-    // Check immediately and then every minute
-    checkOverdueItems();
-    const interval = setInterval(checkOverdueItems, 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [walks, meals, selectedDog]);
-
-  const loadTodayData = async (dogId: string) => {
-    setLoading(true);
-    const today = format(new Date(), 'yyyy-MM-dd');
-
+  const loadTodayData = async () => {
     try {
-      // Load walks for both dogs
-      let { data: walkData, error: walkError } = await supabase
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
+      // Fetch walks
+      const { data: walkData, error: walkError } = await supabase
         .from('walks')
-        .select('id, date, time, peed, pooped, dog_id')
+        .select('*')
         .eq('date', today)
-        .eq('dog_id', dogId);
+        .eq('dog_id', selectedDog.id);
 
-      console.log('Loaded walks:', walkData);
-
-      if (walkError) {
-        console.error('Error loading walks:', walkError);
-        throw walkError;
-      }
+      if (walkError) throw walkError;
 
       if (!walkData || walkData.length === 0) {
-        console.log('Creating new walks for today');
-        const newWalks = DEFAULT_WALKS.map(walk => ({
+        const newWalks: NewWalkRecord[] = DEFAULT_WALKS.map(walk => ({
+          ...walk,
           date: today,
-          time: walk.time,
-          peed: false,
-          pooped: false,
-          dog_id: dogId
+          dog_id: selectedDog.id,
         }));
 
         const { data: insertedWalks, error: insertError } = await supabase
@@ -222,38 +118,28 @@ function App() {
           .insert(newWalks)
           .select();
 
-        if (insertError) {
-          console.error('Error inserting walks:', insertError);
-          throw insertError;
-        }
-        console.log('Created new walks:', insertedWalks);
-        walkData = insertedWalks;
+        if (insertError) throw insertError;
+
+        setWalks(insertedWalks as WalkRecord[]);
+      } else {
+        setWalks(walkData as WalkRecord[]);
       }
 
-      setWalks((walkData || []).sort(sortByTime));
-
-      // Only load and create meals for Ricky
-      if (dogId === 'ricky') {
-        let { data: mealData, error: mealError } = await supabase
+      // Only fetch and create meals for Ricky (dog_id: 2)
+      if (selectedDog.id === 2) {
+        const { data: mealData, error: mealError } = await supabase
           .from('meals')
-          .select('id, date, time, completed, dog_id')
+          .select('*')
           .eq('date', today)
-          .eq('dog_id', dogId);
+          .eq('dog_id', selectedDog.id);
 
-        console.log('Loaded meals:', mealData);
-
-        if (mealError) {
-          console.error('Error loading meals:', mealError);
-          throw mealError;
-        }
+        if (mealError) throw mealError;
 
         if (!mealData || mealData.length === 0) {
-          console.log('Creating new meals for today');
-          const newMeals = DEFAULT_MEALS.map(meal => ({
+          const newMeals: NewMealRecord[] = DEFAULT_MEALS.map(meal => ({
+            ...meal,
             date: today,
-            time: meal.time,
-            completed: false,
-            dog_id: dogId
+            dog_id: selectedDog.id,
           }));
 
           const { data: insertedMeals, error: insertError } = await supabase
@@ -261,353 +147,224 @@ function App() {
             .insert(newMeals)
             .select();
 
-          if (insertError) {
-            console.error('Error inserting meals:', insertError);
-            throw insertError;
-          }
-          console.log('Created new meals:', insertedMeals);
-          mealData = insertedMeals;
+          if (insertError) throw insertError;
+
+          setMeals(insertedMeals as MealRecord[]);
+        } else {
+          setMeals(mealData as MealRecord[]);
         }
-
-        setMeals((mealData || []).sort(sortByTime));
-      } else {
-        // Clear meals for Rudolph
-        setMeals([]);
-      }
-      
-    } catch (error) {
-      console.error('Error loading data:', error);
-      // Set default data if there's an error
-      const defaultWalks = DEFAULT_WALKS.map((walk, index) => ({
-        id: index + 1,
-        date: today,
-        time: walk.time,
-        peed: false,
-        pooped: false,
-        dog_id: dogId
-      }));
-
-      setWalks(defaultWalks.sort(sortByTime));
-      
-      if (dogId === 'ricky') {
-        const defaultMeals = DEFAULT_MEALS.map((meal, index) => ({
-          id: index + 1,
-          date: today,
-          time: meal.time,
-          completed: false,
-          dog_id: dogId
-        }));
-        setMeals(defaultMeals.sort(sortByTime));
       } else {
         setMeals([]);
       }
-      
-      toast({
-        title: 'Error loading data',
-        description: 'Using default data. Changes may not be saved.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error('Error details:', err);
+      showError(err);
     }
   };
 
   const updateWalk = async (walkId: number, field: 'peed' | 'pooped', value: boolean) => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const walkToUpdate = walks.find(w => w.id === walkId);
-    
-    if (!walkToUpdate) return;
-
-    // Update local state first
-    setWalks(currentWalks =>
-      currentWalks.map(walk =>
-        walk.id === walkId ? { ...walk, [field]: value } : walk
-      )
-    );
-
     try {
-      const updateData = {
-        date: today,
-        time: walkToUpdate.time,
-        dog_id: selectedDog.id,
-        peed: field === 'peed' ? value : walkToUpdate.peed,
-        pooped: field === 'pooped' ? value : walkToUpdate.pooped
-      };
-
-      console.log('Updating walk with data:', updateData);
-      const { data, error } = await supabase
-        .from('walks')
-        .update(updateData)
-        .eq('id', walkId)
-        .select();
-
-      if (error) {
-        console.error('Detailed error:', error);
-        throw error;
+      const walkToUpdate = walks.find(w => w.id === walkId);
+      if (!walkToUpdate) {
+        throw new Error('Walk not found');
       }
-      console.log('Update successful:', data);
-    } catch (error) {
-      console.error('Error updating walk:', error);
-      // Revert local state
-      setWalks(currentWalks =>
-        currentWalks.map(walk =>
-          walk.id === walkId ? { ...walk, [field]: !value } : walk
-        )
-      );
-      toast({
-        title: 'Error updating walk record',
-        description: error.message || 'Please try again',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
+
+      const { error } = await supabase
+        .from('walks')
+        .update({
+          [field]: value,
+        })
+        .eq('id', walkId)
+        .eq('dog_id', selectedDog.id);
+
+      if (error) throw error;
+
+      setWalks(walks.map(walk => 
+        walk.id === walkId ? { ...walk, [field]: value } : walk
+      ));
+    } catch (err) {
+      showError(err);
     }
   };
 
   const updateMeal = async (mealId: number, completed: boolean) => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const mealToUpdate = meals.find(m => m.id === mealId);
-    
-    if (!mealToUpdate) return;
-
-    // Update local state first
-    setMeals(currentMeals =>
-      currentMeals.map(meal =>
-        meal.id === mealId ? { ...meal, completed } : meal
-      )
-    );
-
     try {
-      const updateData = {
-        date: today,
-        time: mealToUpdate.time,
-        dog_id: selectedDog.id,
-        completed: completed
-      };
-
-      console.log('Updating meal with data:', updateData);
-      const { data, error } = await supabase
-        .from('meals')
-        .update(updateData)
-        .eq('id', mealId)
-        .select();
-
-      if (error) {
-        console.error('Detailed error:', error);
-        throw error;
+      const mealToUpdate = meals.find(m => m.id === mealId);
+      if (!mealToUpdate) {
+        throw new Error('Meal not found');
       }
-      console.log('Update successful:', data);
-    } catch (error) {
-      console.error('Error updating meal:', error);
-      // Revert local state
-      setMeals(currentMeals =>
-        currentMeals.map(meal =>
-          meal.id === mealId ? { ...meal, completed: !completed } : meal
-        )
-      );
-      toast({
-        title: 'Error updating meal record',
-        description: error.message || 'Please try again',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
+
+      const { error } = await supabase
+        .from('meals')
+        .update({
+          completed: completed,
+        })
+        .eq('id', mealId)
+        .eq('dog_id', selectedDog.id);
+
+      if (error) throw error;
+
+      setMeals(meals.map(meal =>
+        meal.id === mealId ? { ...meal, completed } : meal
+      ));
+    } catch (err) {
+      showError(err);
     }
   };
 
-  const resetData = async () => {
-    await loadTodayData(selectedDog.id);
+  const checkOverdueItems = () => {
+    const notifications: string[] = [];
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+
+    walks.forEach(walk => {
+      const [hour, minute] = walk.time.match(/(\d+):(\d+)/)?.slice(1).map(Number) || [0, 0];
+      const isPM = walk.time.includes('PM');
+      const walkHour = (hour === 12 ? 0 : hour) + (isPM ? 12 : 0);
+
+      if (
+        (currentHour > walkHour || (currentHour === walkHour && currentMinute > minute)) &&
+        !walk.peed &&
+        currentHour - walkHour >= 1
+      ) {
+        notifications.push(`${selectedDog.name} is due for a walk`);
+      }
+    });
+
+    if (selectedDog.id === 2) { // Only check meals for Ricky
+      meals.forEach(meal => {
+        const [hour, minute] = meal.time.match(/(\d+):(\d+)/)?.slice(1).map(Number) || [0, 0];
+        const isPM = meal.time.includes('PM');
+        const mealHour = (hour === 12 ? 0 : hour) + (isPM ? 12 : 0);
+
+        if (
+          (currentHour > mealHour || (currentHour === mealHour && currentMinute > minute)) &&
+          !meal.completed &&
+          currentHour - mealHour >= 1
+        ) {
+          notifications.push(`${selectedDog.name} is due for a meal`);
+        }
+      });
+    }
+
+    setOverdueNotifications(notifications);
   };
 
-  const formatNYTime = (date: Date) => {
-    const nyTime = toZonedTime(date, 'America/New_York');
-    return formatTz(nyTime, 'h:mm:ss a', { timeZone: 'America/New_York' });
-  };
+  useEffect(() => {
+    loadTodayData();
+  }, [selectedDog]);
 
-  if (loading) {
-    return (
-      <ChakraProvider>
-        <Center h="100vh" bg="gray.50">
-          <VStack spacing={4}>
-            <Icon as={FaDog} w={12} h={12} color="blue.500" />
-            <Spinner size="xl" color="blue.500" />
-          </VStack>
-        </Center>
-      </ChakraProvider>
-    );
-  }
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+      checkOverdueItems();
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [walks, meals]);
 
   return (
     <ChakraProvider>
-      <Box minH="100vh" bg="gray.50" py={4} px={2}>
-        <Container maxW="container.md">
-          <VStack spacing={6}>
-            <VStack spacing={4} w="100%">
-              <VStack spacing={2} w="100%" justifyContent="center">
-                <HStack spacing={4}>
-                  <Icon as={FaDog} w={8} h={8} color="blue.500" />
-                  <Heading color="blue.600" fontSize={{ base: "xl", md: "2xl" }}>Dog Daily Management</Heading>
-                </HStack>
+      <Box p={4}>
+        <VStack spacing={8} align="stretch">
+          <HStack spacing={4} align="center">
+            <Select
+              value={selectedDog.id}
+              onChange={(e) => setSelectedDog(DOGS.find(dog => dog.id === parseInt(e.target.value)) || DOGS[0])}
+              maxW="200px"
+            >
+              {DOGS.map(dog => (
+                <option key={dog.id} value={dog.id}>{dog.name}</option>
+              ))}
+            </Select>
+            <Image
+              src={selectedDog.image}
+              alt={selectedDog.name}
+              boxSize="100px"
+              objectFit="cover"
+              borderRadius="full"
+            />
+            <Text fontSize="sm" color="gray.500">
+              Current time in New York: {formatInTimeZone(currentTime, 'America/New_York', 'h:mm a')}
+            </Text>
+          </HStack>
 
-                <HStack spacing={2} color="gray.600">
-                  <Icon as={FaClock} />
-                  <Text>NY Time: {formatNYTime(currentTime)}</Text>
-                </HStack>
-              </VStack>
-              
-              {overdueNotifications.length > 0 && (
-                <VStack 
-                  w="100%" 
-                  spacing={2} 
-                  p={4} 
-                  bg="red.50" 
-                  borderRadius="md" 
-                  borderWidth={1}
-                  borderColor="red.200"
-                >
-                  {overdueNotifications.map((notification, index) => (
-                    <Text 
-                      key={index} 
-                      color="red.600" 
-                      fontWeight="medium"
-                      fontSize="sm"
-                    >
-                      {notification}
-                    </Text>
-                  ))}
-                </VStack>
-              )}
-              
-              <VStack w="100%" spacing={4} justifyContent="center">
-                <Select
-                  value={selectedDog.id}
-                  onChange={(e) => setSelectedDog(DOGS.find(dog => dog.id === e.target.value) || DOGS[0])}
-                  width={{ base: "100%", md: "200px" }}
-                  bg="white"
-                >
-                  {DOGS.map(dog => (
-                    <option key={dog.id} value={dog.id}>{dog.name}</option>
-                  ))}
-                </Select>
-                <Image
-                  src={selectedDog.image}
-                  alt={selectedDog.name}
-                  boxSize={{ base: "80px", md: "100px" }}
-                  objectFit="cover"
-                  borderRadius="full"
-                  border="3px solid"
-                  borderColor="blue.500"
-                />
-              </VStack>
-            </VStack>
-            
-            <Box w="100%" bg="white" p={{ base: 4, md: 6 }} borderRadius="xl" boxShadow="md">
-              <HStack mb={4}>
-                <Icon as={FaDog} w={6} h={6} color="blue.500" />
-                <Heading size="md" color="blue.600">Walks</Heading>
-              </HStack>
-              <Grid 
-                templateColumns={{ 
-                  base: "repeat(1, 1fr)", 
-                  sm: "repeat(2, 1fr)", 
-                  md: "repeat(4, 1fr)" 
-                }} 
-                gap={4}
-              >
-                {walks.map(walk => (
-                  <Box 
-                    key={walk.id} 
-                    p={4} 
-                    borderWidth={1} 
-                    borderRadius="lg" 
-                    borderColor="gray.200"
-                    bg="gray.50"
-                    _hover={{ bg: 'gray.100', transform: 'translateY(-2px)' }}
-                    transition="all 0.2s"
-                  >
-                    <Text fontWeight="bold" mb={3} color="blue.600">{walk.time}</Text>
-                    <VStack align="start" spacing={3}>
-                      <HStack width="100%">
-                        <CustomCheckbox
-                          isChecked={walk.peed}
-                          onChange={(e) => updateWalk(walk.id, 'peed', e.target.checked)}
-                        >
-                          <HStack spacing={2}>
-                            <Icon as={FaTint} color={walk.peed ? "green.500" : "gray.300"} />
-                            <Text>Peed</Text>
-                          </HStack>
-                        </CustomCheckbox>
-                      </HStack>
-                      <HStack width="100%">
-                        <CustomCheckbox
-                          isChecked={walk.pooped}
-                          onChange={(e) => updateWalk(walk.id, 'pooped', e.target.checked)}
-                        >
-                          <HStack spacing={2}>
-                            <Icon as={FaPoop} color={walk.pooped ? "green.500" : "gray.300"} />
-                            <Text>Pooped</Text>
-                          </HStack>
-                        </CustomCheckbox>
-                      </HStack>
-                    </VStack>
-                  </Box>
-                ))}
-              </Grid>
+          {overdueNotifications.length > 0 && (
+            <Box bg="red.100" p={4} borderRadius="md">
+              {overdueNotifications.map((notification, index) => (
+                <Text key={index} color="red.600">{notification}</Text>
+              ))}
             </Box>
+          )}
 
-            {selectedDog.id === 'ricky' && (
-              <Box w="100%" bg="white" p={{ base: 4, md: 6 }} borderRadius="xl" boxShadow="md">
-                <HStack mb={4}>
-                  <Icon as={MdRestaurant} w={6} h={6} color="green.500" />
-                  <Heading size="md" color="green.600">Meals</Heading>
-                </HStack>
-                <Grid 
-                  templateColumns={{ 
-                    base: "repeat(1, 1fr)", 
-                    sm: "repeat(2, 1fr)", 
-                    md: "repeat(3, 1fr)" 
-                  }} 
-                  gap={4}
-                >
+          <Box>
+            <Heading size="lg" mb={4}>Today's Walks</Heading>
+            <Table variant="simple">
+              <Thead>
+                <Tr>
+                  <Th>Time</Th>
+                  <Th>Peed</Th>
+                  <Th>Pooped</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {walks.map(walk => (
+                  <Tr key={walk.id}>
+                    <Td>{walk.time}</Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={walk.peed}
+                        onChange={(e) => updateWalk(walk.id, 'peed', e.target.checked)}
+                        colorScheme="green"
+                      />
+                    </Td>
+                    <Td>
+                      <Checkbox
+                        isChecked={walk.pooped}
+                        onChange={(e) => updateWalk(walk.id, 'pooped', e.target.checked)}
+                        colorScheme="green"
+                      />
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
+
+          {selectedDog.id === 2 && (
+            <Box>
+              <Heading size="lg" mb={4}>Today's Meals</Heading>
+              <Table variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th>Time</Th>
+                    <Th>Completed</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
                   {meals.map(meal => (
-                    <Box 
-                      key={meal.id} 
-                      p={4} 
-                      borderWidth={1} 
-                      borderRadius="lg" 
-                      borderColor="gray.200"
-                      bg="gray.50"
-                      _hover={{ bg: 'gray.100', transform: 'translateY(-2px)' }}
-                      transition="all 0.2s"
-                    >
-                      <Text fontWeight="bold" mb={3} color="green.600">{meal.time}</Text>
-                      <HStack width="100%">
-                        <CustomCheckbox
+                    <Tr key={meal.id}>
+                      <Td>{meal.time}</Td>
+                      <Td>
+                        <Checkbox
                           isChecked={meal.completed}
                           onChange={(e) => updateMeal(meal.id, e.target.checked)}
-                        >
-                          <HStack spacing={2}>
-                            <Icon 
-                              as={FaBone} 
-                              color={meal.completed ? "green.500" : "gray.300"}
-                              transform="rotate(45deg)"
-                            />
-                            <Text>Fed</Text>
-                          </HStack>
-                        </CustomCheckbox>
-                      </HStack>
-                    </Box>
+                          colorScheme="green"
+                        />
+                      </Td>
+                    </Tr>
                   ))}
-                </Grid>
-              </Box>
-            )}
-          </VStack>
-        </Container>
+                </Tbody>
+              </Table>
+            </Box>
+          )}
+
+          <Analytics supabase={supabase} selectedDog={selectedDog} />
+        </VStack>
       </Box>
     </ChakraProvider>
   );
-}
+};
 
 export default App; 
