@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Dog Management System
 
 A web application to track daily walks and meals for dogs. Built with React, Vite, and Supabase.
@@ -26,7 +25,7 @@ A web application to track daily walks and meals for dogs. Built with React, Vit
 
 1. Clone the repository:
 ```bash
-git clone [your-repository-url]
+git clone https://github.com/eaegeea/dms.git
 cd dog-management-system
 ```
 
@@ -74,7 +73,4 @@ CREATE TABLE meals (
     time text NOT NULL,
     completed boolean DEFAULT false,
     dog_id text NOT NULL
-); 
-=======
-# dms
->>>>>>> 07586929496255d70bd2ad542700139d7e040eae
+);
