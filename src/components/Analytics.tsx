@@ -11,6 +11,8 @@ import {
   StatArrow,
   Grid,
   useColorModeValue,
+  Button,
+  HStack,
 } from '@chakra-ui/react';
 import {
   LineChart,
@@ -24,6 +26,7 @@ import {
 } from 'recharts';
 import { format, subMonths, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { useNavigate } from 'react-router-dom';
 
 interface AnalyticsProps {
   supabase: SupabaseClient;
@@ -54,6 +57,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ supabase, selectedDog }) => {
     currentMonth: { peeCount: 0, poopCount: 0 },
     previousMonth: { peeCount: 0, poopCount: 0 },
   });
+  const navigate = useNavigate();
 
   const lineColors = {
     pee: useColorModeValue('#3182CE', '#63B3ED'),
@@ -152,9 +156,11 @@ const Analytics: React.FC<AnalyticsProps> = ({ supabase, selectedDog }) => {
   };
 
   return (
-    <VStack spacing={8} w="100%" align="stretch">
-      <Box>
-        <Heading size="lg" mb={4}>Analytics for {selectedDog.name}</Heading>
+    <VStack spacing={8} p={4} align="stretch">
+      <HStack justify="space-between" align="center">
+        <Button colorScheme="blue" onClick={() => navigate('/')}>
+          Back to Dashboard
+        </Button>
         <Select
           value={timeRange}
           onChange={(e) => setTimeRange(e.target.value as 'month' | 'year' | 'all')}
@@ -164,7 +170,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ supabase, selectedDog }) => {
           <option value="year">Last Year</option>
           <option value="all">All Time</option>
         </Select>
-      </Box>
+      </HStack>
+
+      <Heading size="lg">Analytics for {selectedDog.name}</Heading>
 
       <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={6}>
         <Stat>
